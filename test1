@@ -1,3 +1,4 @@
+print("SCRIPT LOADED:", tick())
 local startTime = tick()
 local detected = false
 

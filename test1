@@ -1,0 +1,51 @@
+local startTime = tick()
+local detected = false
+
+local leavesFolder = workspace:WaitForChild("Interactive"):WaitForChild("Leaves")
+
+local function isCollectable(leaf)
+    return leaf:IsA("BasePart")
+        and leaf.Name == "Circle"
+        and leaf.Transparency == 0
+        and leaf.CanTouch == true
+end
+
+local function checkLeaf(leaf)
+    if detected then return end
+    
+    if isCollectable(leaf) then
+        detected = true
+        local timeTaken = tick() - startTime
+
+        print("------")
+        print("Leafs became collectable after:", timeTaken, "seconds")
+        print("Respawn baseline: 60.23s")
+        
+        if timeTaken < 60.23 then
+            print("✅ Server hopping is FASTER")
+        else
+            print("❌ Waiting is BETTER")
+        end
+        print("------")
+    end
+end
+
+-- Scan existing
+for _, v in pairs(leavesFolder:GetDescendants()) do
+    checkLeaf(v)
+end
+
+-- Listen for changes
+leavesFolder.DescendantAdded:Connect(checkLeaf)
+
+-- Also track property changes (important)
+for _, v in pairs(leavesFolder:GetDescendants()) do
+    if v:IsA("BasePart") and v.Name == "Circle" then
+        v:GetPropertyChangedSignal("Transparency"):Connect(function()
+            checkLeaf(v)
+        end)
+        v:GetPropertyChangedSignal("CanTouch"):Connect(function()
+            checkLeaf(v)
+        end)
+    end
+end

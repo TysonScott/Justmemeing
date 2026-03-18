@@ -1,52 +1,69 @@
 print("SCRIPT LOADED:", tick())
+
 local startTime = tick()
 local detected = false
 
 local leavesFolder = workspace:WaitForChild("Interactive"):WaitForChild("Leaves")
 
-local function isCollectable(leaf)
-    return leaf:IsA("BasePart")
-        and leaf.Name == "Circle"
-        and leaf.Transparency == 0
-        and leaf.CanTouch == true
-end
+local trackedLeaves = {}
 
-local function checkLeaf(leaf)
-    if detected then return end
-    
-    if isCollectable(leaf) then
-        detected = true
-        local timeTaken = tick() - startTime
+local function trackLeaf(leaf)
+    if not (leaf:IsA("BasePart") and leaf.Name == "Circle") then return end
 
-        print("------")
-        print("Leafs became collectable after:", timeTaken, "seconds")
-        print("Respawn baseline: 60.23s")
-        
-        if timeTaken < 60.23 then
-            print("✅ Server hopping is FASTER")
-        else
-            print("❌ Waiting is BETTER")
+    -- mark initial state
+    trackedLeaves[leaf] = {
+        wasInvisible = (leaf.Transparency == 1)
+    }
+
+    -- listen for changes
+    leaf:GetPropertyChangedSignal("Transparency"):Connect(function()
+        if detected then return end
+
+        local data = trackedLeaves[leaf]
+        if not data then return end
+
+        -- only trigger if it was invisible FIRST
+        if data.wasInvisible and leaf.Transparency == 0 then
+            detected = true
+
+            local timeTaken = tick() - startTime
+
+            print("------")
+            print("Leaf became collectable after:", timeTaken, "seconds")
+            print("Respawn baseline: 60.23s")
+
+            if timeTaken < 60.23 then
+                print("✅ Server hopping is FASTER")
+            else
+                print("❌ Waiting is BETTER")
+            end
+            print("------")
         end
-        print("------")
-    end
+    end)
 end
 
--- Scan existing
+-- Track all existing leaves
 for _, v in pairs(leavesFolder:GetDescendants()) do
-    checkLeaf(v)
+    trackLeaf(v)
 end
 
--- Listen for changes
-leavesFolder.DescendantAdded:Connect(checkLeaf)
+-- Track new ones
+leavesFolder.DescendantAdded:Connect(trackLeaf)
 
--- Also track property changes (important)
-for _, v in pairs(leavesFolder:GetDescendants()) do
-    if v:IsA("BasePart") and v.Name == "Circle" then
-        v:GetPropertyChangedSignal("Transparency"):Connect(function()
-            checkLeaf(v)
-        end)
-        v:GetPropertyChangedSignal("CanTouch"):Connect(function()
-            checkLeaf(v)
-        end)
+-- 🔥 IMPORTANT: check instant availability properly
+task.delay(1, function()
+    if detected then return end
+
+    for leaf, data in pairs(trackedLeaves) do
+        if leaf.Transparency == 0 then
+            detected = true
+
+            print("------")
+            print("Leaf was ALREADY available on join (0s)")
+            print("Respawn baseline: 60.23s")
+            print("🚀 Server hopping is VERY FAST")
+            print("------")
+            break
+        end
     end
-end
+end)
